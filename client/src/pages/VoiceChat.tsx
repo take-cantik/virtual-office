@@ -1,129 +1,203 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { socket } from "../infra/socket";
+
+var isHost = false;
+var room = 'room1';
+
+var localStream = null;
+var remoteStream = null;
+var peerConnection = null;
+var isStarted = false;
+
+let config = {
+  "iceServers": [
+    { "urls": "stun:stun.l.google.com:19302" },
+    { "urls": "stun:stun1.l.google.com:19302" },
+    { "urls": "stun:stun2.l.google.com:19302" },
+  ]
+};
+
+const constraints = {
+  audio: true,
+  video: true,
+};
+
+const offerOptions = {
+  offerToReceiveAudio: 1,
+  offerToReceiveVideo: 1,
+};
 
 function VoiceChat() {
   const localVideoRef = useRef<HTMLVideoElement|null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement|null>(null);
 
-  const offerOptions = {
-    offerToReceiveAudio: 1,
-    offerToReceiveVideo: 1,
-  };
+  const [isKnocking, setIsKnocking] = useState<boolean>(false);
+  const [canCalling, setCanCalling] = useState<boolean>(false);
+  const [isAllowed, setIsAllowed] = useState<boolean>(false);
 
-  var localPeerConnection = null;
-  var remotePeerConnection = null;
-  var localStream = null;
+  socket.on('knocked response', (numClients, room) => {
+    if (numClients === 0) {
+      socket.emit('create', room);
+    } else if (numClients === 1) {
+      socket.emit('join', room);
+    } else {
+      console.log("room [" + room + "] is full.");
+    }
+  });
+  socket.on('created', (room) => {
+    console.log('[Server said] you created room [' + room + ']');
+    isHost = true;
+    if (!isStarted) {
+      startConnect();
+    }
+  });
+  socket.on('joined', (room, id) => {
+    console.log('[Server said] ' + id + ' joined room [' + room + ']');
+    if (isHost) {
+      setIsKnocking(true);
+    } else {
+      if (!isStarted) {
+        startConnect();
+      }
+    }
+  });
+  socket.on('allowed', () => {
+    console.log('allowed!');
+    setIsAllowed(true);
+  });
+  socket.on('offer', (description) => {
+    console.log('Offer received');
+    if (!isHost && !isStarted) {
+      startConnect();
+    }
+    peerConnection.setRemoteDescription(description);
+    peerConnection.createAnswer()
+      .then(setLocalAndSendMessage)
+      .catch(handleAnswerError);
+  });
+  socket.on('answer', (description) => {
+    console.log('Answer received');
+    if (isStarted) {
+      peerConnection.setRemoteDescription(description);
+    }
+  });
+  socket.on('candidate', (description) => {
+    console.log('candidate Recieved');
+    if (isStarted) {
+      peerConnection.addIceCandidate(
+        new RTCIceCandidate({
+          sdpMLineIndex: description.label,
+          candidate: description.candidate,
+        })
+      );
+    }
+  });
 
-  const getRemoteStream = (event: any) => {
-    if (!remoteVideoRef.current) {
+  const createPeerConnection = () => {
+    try {
+      peerConnection = new RTCPeerConnection( config );
+      peerConnection.onicecandidate = handleConnection;
+      peerConnection.onaddstream = handleAddStream;
+      peerConnection.onremovestream = handleRemoveStream;
+      console.log('PeerConnection is created');
+    } catch (error) {
+      console.log('[ERROR]', error);
       return;
     }
-    remoteVideoRef.current.srcObject = event.stream;
-  };
+  }
 
   const handleConnection = (event) => {
-    const peerConnection = event.target;
-    const iceCandidate = event.candidate;
-
-    if (iceCandidate) {
-      const newIceCandidate = new RTCIceCandidate(iceCandidate);
-      const otherPeer = peerConnection === localPeerConnection ? remotePeerConnection : localPeerConnection;
-
-      otherPeer.addIceCandidate(newIceCandidate)
-        .then(() => {
-          console.log('addIceCandidate success');
-        }).catch((error) => {
-          console.error('failed to add ICE Candidate', error);
-        });
+    if (event.candidate && peerConnection.signalingState !== 'stable') {
+      console.log(peerConnection.signalingState);
+      socket.emit('message', {
+        type: 'candidate',
+        label: event.candidate.sdpMLineIndex,
+        id: event.candidate.sdpMid,
+        candidate: event.candidate.candidate
+      });
+    } else {
+      console.log('End of candidates');
     }
   }
 
-  const handleConnectionChange = (event) => {
-    console.log('ICE state change event: ', event);
+  const startConnect = () => {
+    createPeerConnection();
+    peerConnection.addStream(localStream);
+    isStarted = true;
+    if (!isHost) {
+      peerConnection.createOffer(offerOptions)
+        .then(setLocalAndSendMessage)
+        .catch(handleOfferError);
+    }
   }
 
-  const createdOffer = (description) => {
-    localPeerConnection.setLocalDescription(description)
-      .then(() => {
-        console.log("LocalPeerConnection success");
-      })
-      .catch(() => {
-        console.log("LocalPeerConnection Failure");
-      })
-    remotePeerConnection.setRemoteDescription(description)
-      .then(() => {
-        console.log("RemotePeerConnection Success");
-      })
-      .catch(() => {
-        console.log("RemotePeerConnection Failure");
-      })
-    remotePeerConnection.createAnswer()
-      .then(createdAnswer)
-      .catch(() => {
-        console.log("RemoteCreateAnswer Failure");
-      })
+  const handleAddStream = (event) => {
+    console.log('add stream');
+    remoteStream = event.stream;
   }
 
-  const createdAnswer = (description) => {
-    remotePeerConnection.setLocalDescription(description)
-      .then(() => {
-        console.log('remotePeerConnection setLocalDescription success');
-      }).catch((error) => {
-        console.error('remotePeerConnection failed to set session description', error);
-      });
-
-    localPeerConnection.setRemoteDescription(description)
-      .then(() => {
-        console.log('localPeerConnection setRemoteDescription success');
-      }).catch((error) => {
-        console.error('localPeerConnection failed to set session description', error);
-      });
+  const handleRemoveStream = (event) => {
+    console.log('remove stream' + event);
   }
 
+  const startConnection = () => {
+    createPeerConnection();
+    peerConnection.addStream(localStream);
+    isStarted = true;
+    if (!isHost) {
+      peerConnection.createOffer(offerOptions)
+        .then(setLocalAndSendMessage)
+        .catch(handleOfferError);
+    }
+  }
+
+  const setLocalAndSendMessage = (description) => {
+    peerConnection.setLocalDescription(description);
+    socket.emit('message', description);
+  }
+  const handleOfferError = (error) => {
+    console.log("[ERROR]", error);
+  }
+  const handleAnswerError = (error) => {
+    console.log("[ERROR]" + error.toString());
+  }
+  const allowJoin = () => {
+    console.log('allow');
+    socket.emit('allow');
+    setIsAllowed(true);
+  }
   const calling = () => {
-    localPeerConnection = new RTCPeerConnection(null);
-    localPeerConnection.addEventListener('icecandidate', handleConnection);
-    localPeerConnection.addEventListener('iceconnectionstatechange', handleConnectionChange)
-
-    remotePeerConnection = new RTCPeerConnection(null);
-    remotePeerConnection.addEventListener('icecandidate', handleConnection);
-    remotePeerConnection.addEventListener('iceconnectionstatechange', handleConnectionChange);
-    remotePeerConnection.addEventListener('addstream', getRemoteStream);
-
-    localPeerConnection.addStream(localStream);
-
-    localPeerConnection.createOffer(offerOptions)
-      .then(createdOffer)
-      .catch((error) => {
-        console.log('createOffer Error', error);
-      })
+    socket.emit('knock', room);
   }
 
   useEffect(() => {
-    const constraints = {
-      audio: true,
-      video: true,
-    };
     navigator.mediaDevices.getUserMedia(constraints)
       .then((stream) => {
         localStream = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+        console.log(localStream);
+        localVideoRef.current.srcObject = stream;
+        setCanCalling(true);
       })
-      .catch((err) => {
-        console.error(err);
+      .catch((error) => {
+        console.log("ERROR", error);
       });
   }, []);
+
+  useEffect(() => {
+    remoteVideoRef.current.srcObject = remoteStream;
+  },[isAllowed]);
+
 
   return (
     <div>
       <h1>Voice Chat</h1>
       <h2>Local</h2>
-      <video ref={localVideoRef} autoPlay />
+      <video ref={localVideoRef} playsInline autoPlay />
       <h2>Remote</h2>
-      <video ref={remoteVideoRef} autoPlay />
+      <video ref={remoteVideoRef} playsInline autoPlay />
 
-      <button onClick={calling}>Call</button>
+      <button onClick={allowJoin} disabled={!isKnocking}>Allow</button>
+      <button onClick={calling} disabled={!canCalling}>Call</button>
     </div>
   );
 }
