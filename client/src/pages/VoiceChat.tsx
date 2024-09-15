@@ -17,7 +17,7 @@ function VoiceChat() {
     if (!remoteVideoRef.current) {
       return;
     }
-    remoteVideoRef.current.srcObject = event.streams[0];
+    remoteVideoRef.current.srcObject = event.stream;
   };
 
   const handleConnection = (event) => {
@@ -105,6 +105,7 @@ function VoiceChat() {
     };
     navigator.mediaDevices.getUserMedia(constraints)
       .then((stream) => {
+        localStream = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }

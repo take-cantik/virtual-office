@@ -1,7 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { ExpressPeerServer } from 'peer';
 
 const app: express.Express = express();
 const httpServer = createServer(app);
@@ -13,10 +12,7 @@ const io = new Server(httpServer, {
   },
   path: '/socket'
 });
-const peerServer = ExpressPeerServer(httpServer);
 const port = 3000;
-
-app.use('/peer', peerServer);
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
