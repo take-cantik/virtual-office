@@ -21,8 +21,10 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   // 接続時のイベント
   console.info('connected!');
-  socket.on('insertMessage', (message: string) => {
-    console.info(`Message: ${message}`);
+
+  socket.on('sendMessage', (message: string) => {
+    console.info(`message: ${message}`);
+    io.emit('chat', message);
   });
 
   // 接続が切れた時のイベント
