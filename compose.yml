@@ -1,0 +1,18 @@
+volumes:
+  db-store:
+
+services:
+  db:
+    container_name: db
+    image: postgres:16.3
+    ports:
+      - 5432:5432
+    volumes:
+      - db-store:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=local
+      - POSTGRES_USER=node
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_ROOT_PASSWORD=secret
+      - TZ=Asia/Tokyo
+
