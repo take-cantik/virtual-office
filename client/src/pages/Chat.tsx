@@ -1,5 +1,3 @@
-
-import '../App.css'
 import { useEffect, useState } from 'react';
 import { socket } from '../infra/socket';
 import { useForm } from 'react-hook-form';
@@ -8,7 +6,7 @@ type MessageReq = {
   message: string;
 }
 
-function App() {
+function Chat() {
   const [isConnected, setConnected] = useState<boolean>(socket.connected);
   const [messageList, setMessageList] = useState<string[]>([]);
   const { register, getValues, handleSubmit, reset } = useForm<MessageReq>({
@@ -51,4 +49,4 @@ function App() {
   )
 }
 
-export default App
+export default Chat;
