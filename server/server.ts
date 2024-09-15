@@ -1,6 +1,6 @@
-import experss from 'express';
+import express from 'express';
 
-const app: experss.Express = express();
+const app: express.Express = express();
 const port = 3000;
 
 app.get('/', (req, res) => {
