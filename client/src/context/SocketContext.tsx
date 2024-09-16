@@ -1,6 +1,7 @@
 import { createContext, useEffect, useRef, useState } from "react";
 import { socket } from "../infra/socket";
 import Peer from "simple-peer";
+import { useKey } from "react-use";
 
 const SocketContext = createContext();
 
@@ -11,10 +12,44 @@ const ContextProvider = ({ children }) => {
   const [callAccepted, setCallAccepted] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
   const [name, setName] = useState('');
+  const [myPosition, setMyPosition] = useState({ x: 0, y: 0 });
+  const [anotherUserPosition, setAnotherUserPosition] = useState({});
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const connectionRef = useRef();
+
+  const move = (dx: number, dy: number) => {
+    setMyPosition((prev) => {
+      const newPosition = {
+        x: prev.x + dx,
+        y: prev.y + dy,
+      };
+
+      socket.emit('updatePosition', newPosition);
+
+      return newPosition;
+    });
+  };
+
+  // wasdキーで移動
+  useKey('w', () => move(0, -10));
+  useKey('s', () => move(0, 10));
+  useKey('a', () => move(-10, 0));
+  useKey('d', () => move(10, 0));
+
+  // 矢印キーで移動
+  useKey('ArrowUp', () => move(0, -10));
+  useKey('ArrowDown', () => move(0, 10));
+  useKey('ArrowLeft', () => move(-10, 0));
+  useKey('ArrowRight', () => move(10, 0));
+
+  // hjklキーで移動
+  useKey('h', () => move(-10, 0));
+  useKey('j', () => move(0, 10));
+  useKey('k', () => move(0, -10));
+  useKey('l', () => move(10, 0));
+
 
   useEffect(() => {
     // ブラウザのメディアデバイスを取得
@@ -38,6 +73,18 @@ const ContextProvider = ({ children }) => {
     socket.on('calluser', ({ from, name: callerName, signal }) => {
       // console.info('calluser', from, callerName, signal);
       setCall({ isReceivedCall: true, from, name: callerName, signal });
+      setAnotherUserPosition((prev) => ({
+        ...prev,
+        [from]: { x: 0, y: 0 },
+      }));
+    });
+
+    socket.on('updateUserPosition', ({ socketId, position }) => {
+      console.info('updateAnotherUserPosition', socketId, position);
+      setAnotherUserPosition((prev) => ({
+        ...prev,
+        [socketId]: position,
+      }));
     });
 
     return () => {
@@ -115,6 +162,8 @@ const ContextProvider = ({ children }) => {
       callUser,
       leaveCall,
       answerCall,
+      myPosition,
+      anotherUserPosition,
     }}>
       {children}
     </SocketContext.Provider>

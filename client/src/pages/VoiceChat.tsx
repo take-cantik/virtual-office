@@ -4,7 +4,22 @@ import { useForm } from "react-hook-form";
 
 
 const VoiceChat = () => {
-  const { name, setName, call, stream, callAccepted, callEnded, me, callUser, answerCall, leaveCall, localVideoRef, remoteVideoRef } = useContext(SocketContext);
+  const {
+    name,
+    setName,
+    call,
+    stream,
+    callAccepted,
+    callEnded,
+    me,
+    callUser,
+    answerCall,
+    leaveCall,
+    localVideoRef,
+    remoteVideoRef,
+    myPosition,
+    anotherUserPosition,
+  } = useContext(SocketContext);
   const nameForm = useForm<{ name: string }>({
     defaultValues: {
       name: '',
@@ -30,7 +45,7 @@ const VoiceChat = () => {
 
   return (
     <div>
-      <h1>Voice Chat</h1>
+      <h2>{me && `(your ID: ${me})`}</h2>
       <form onSubmit={onNameSubmit}>
         <label>
           name:
@@ -56,12 +71,34 @@ const VoiceChat = () => {
           </div>
         )}
         <div>
-          <h2>{name || "匿名"} {me && `(your ID: ${me})`}</h2>
-          <video ref={localVideoRef} playsInline autoPlay muted />
-        </div>
-        <div>
-          <h2>{call.name || "匿名"}</h2>
-          <video ref={remoteVideoRef} playsInline autoPlay />
+          <div style={{
+            position: 'absolute',
+            left: myPosition.x,
+            top: myPosition.y,
+            width: '200px',
+            height: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <video ref={localVideoRef} playsInline autoPlay muted width={200} />
+            <p>{name || "匿名"}</p>
+          </div>
+          <div style={{
+            position: 'absolute',
+            left: anotherUserPosition[call.from]?.x || anotherUserPosition[callForm.watch('id')]?.x || 0,
+            top: anotherUserPosition[call.from]?.y || anotherUserPosition[callForm.watch('id')]?.y || 0,
+            width: '200px',
+            height: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <video ref={remoteVideoRef} playsInline autoPlay width={200} />
+            <p>{call.name || "匿名"}</p>
+          </div>
         </div>
     </div>
   );

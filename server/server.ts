@@ -40,6 +40,12 @@ io.on('connection', (socket) => {
     io.to(data.to).emit('callaccepted', data.signal);
   });
 
+  // ユーザーの位置を更新する
+  socket.on('updatePosition', (position) => {
+    // console.info('updatePosition', position);
+    socket.broadcast.emit('updateUserPosition', { socketId: socket.id, position });
+  });
+
    // 接続が切れた時のイベント
   socket.on('disconnect', () => {
     console.info('disconnected!' + socket.id);
