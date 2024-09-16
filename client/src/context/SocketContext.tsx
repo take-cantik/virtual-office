@@ -9,6 +9,7 @@ const ContextProvider = ({ children }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [me, setMe] = useState<string>('');
   const [call, setCall] = useState({});
+  const [answer, setAnswer] = useState({});
   const [callAccepted, setCallAccepted] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
   const [name, setName] = useState('');
@@ -79,6 +80,25 @@ const ContextProvider = ({ children }) => {
       }));
     });
 
+    socket.on('updateName', ({ socketId, name }) => {
+      console.info('updateName', socketId, name);
+      console.info('call', call);
+      console.info('answer', answer);
+      if (call.from == socketId) {
+        setCall((prev) => ({
+          ...prev,
+          name,
+        }));
+      }
+
+      if (answer.from == socketId) {
+        setAnswer((prev) => ({
+          ...prev,
+          name,
+        }));
+      }
+    });
+
     socket.on('updateUserPosition', ({ socketId, position }) => {
       console.info('updateAnotherUserPosition', socketId, position);
       setAnotherUserPosition((prev) => ({
@@ -93,6 +113,15 @@ const ContextProvider = ({ children }) => {
     };
   }, []);
 
+  useEffect(() => {
+    console.info('call', call);
+  }, [call]);
+
+  const updateName = (name) => {
+    setName(name);
+    socket.emit('updateName', name);
+  };
+
   const answerCall = () => {
     setCallAccepted(true);
 
@@ -104,7 +133,7 @@ const ContextProvider = ({ children }) => {
     })
 
     peer.on('signal', (data) => {
-      socket.emit('answercall', { signal: data, to: call.from });
+      socket.emit('answercall', { signal: data, to: call.from, from: { from: me, name } });
     });
 
     peer.on('stream', (currentStream) => {
@@ -134,8 +163,9 @@ const ContextProvider = ({ children }) => {
       remoteVideoRef.current.srcObject = currentStream;
     });
 
-    socket.on("callaccepted", (signal) => {
+    socket.on("callaccepted", (signal, answer) => {
       setCallAccepted(true);
+      setAnswer(answer);
       peer.signal(signal);
     });
     connectionRef.current = peer;
@@ -151,12 +181,13 @@ const ContextProvider = ({ children }) => {
   return (
     <SocketContext.Provider value={{
       call,
+      answer,
       callAccepted,
       localVideoRef,
       remoteVideoRef,
       stream,
       name,
-      setName,
+      updateName,
       callEnded,
       me,
       callUser,

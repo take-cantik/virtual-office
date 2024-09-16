@@ -30,6 +30,11 @@ io.on('connection', (socket) => {
   // meイベントで自分のsocket.idを返す
   socket.emit('me', socket.id);
 
+  socket.on('updateName', (name: string) => {
+    console.info('updateName', name);
+    socket.broadcast.emit('updateName', { socketId: socket.id, name });
+  });
+
   socket.on('calluser', ({ userToCall, signalData, from, name }) => {
     console.info('calluser', userToCall, signalData, from, name);
     io.to(userToCall).emit('calluser', { signal: signalData, from, name });
@@ -37,7 +42,7 @@ io.on('connection', (socket) => {
 
   socket.on('answercall', (data) => {
     console.info('answercall', data);
-    io.to(data.to).emit('callaccepted', data.signal);
+    io.to(data.to).emit('callaccepted', data.signal, data.from);
   });
 
   // ユーザーの位置を更新する

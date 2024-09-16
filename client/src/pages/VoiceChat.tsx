@@ -6,9 +6,9 @@ import { useForm } from "react-hook-form";
 const VoiceChat = () => {
   const {
     name,
-    setName,
+    updateName,
     call,
-    stream,
+    answer,
     callAccepted,
     callEnded,
     me,
@@ -33,7 +33,7 @@ const VoiceChat = () => {
   });
 
   const onNameSubmit = nameForm.handleSubmit(() => {
-    setName(nameForm.getValues('name'));
+    updateName(nameForm.getValues('name'));
     nameForm.reset();
   });
 
@@ -85,20 +85,22 @@ const VoiceChat = () => {
             <video ref={localVideoRef} playsInline autoPlay muted width={200} />
             <p>{name || "匿名"}</p>
           </div>
-          <div style={{
-            position: 'absolute',
-            left: anotherUserPosition[call.from]?.x || anotherUserPosition[callForm.watch('id')]?.x || 0,
-            top: anotherUserPosition[call.from]?.y || anotherUserPosition[callForm.watch('id')]?.y || 0,
-            width: '200px',
-            height: '200px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            <video ref={remoteVideoRef} playsInline autoPlay width={200} />
-            <p>{call.name || "匿名"}</p>
-          </div>
+          {(call.from || answer.from) && (
+            <div style={{
+              position: 'absolute',
+              left: anotherUserPosition[call.from]?.x || anotherUserPosition[answer.from]?.x || 0,
+              top: anotherUserPosition[call.from]?.y || anotherUserPosition[answer.from]?.y || 0,
+              width: '200px',
+              height: '200px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <video ref={remoteVideoRef} playsInline autoPlay width={200} />
+              <p>{call.name || answer.name || "匿名"}</p>
+            </div>
+          )}
         </div>
     </div>
   );
