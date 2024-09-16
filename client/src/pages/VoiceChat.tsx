@@ -9,7 +9,7 @@ var remoteStream = null;
 var peerConnection = null;
 var isStarted = false;
 
-let config = {
+const config = {
   "iceServers": [
     { "urls": "stun:stun.l.google.com:19302" },
     { "urls": "stun:stun1.l.google.com:19302" },

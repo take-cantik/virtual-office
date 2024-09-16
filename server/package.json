@@ -5,7 +5,7 @@
   "main": "server.ts",
   "types": "module",
   "scripts": {
-    "dev": "ts-node server.ts",
+    "dev": "node -r ts-node/register --env-file=.env.local server.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
   },
